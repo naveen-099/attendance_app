@@ -40,6 +40,42 @@ export type PasswordChangeResponse = {
   first_login_completed: boolean;
 };
 
+export type EmployeeDetails = {
+  employee_id: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  department: string;
+  designation: string;
+  role: 'employee';
+  is_first_login_required: boolean;
+  password_changed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type EmployeeList = {
+  items: EmployeeDetails[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
+export type EmployeeUpdateRequest = {
+  full_name: string;
+  email: string;
+  phone: string;
+  department?: string;
+  designation?: string;
+};
+
+export type EmployeePasswordReset = {
+  employee_id: string;
+  temporary_password: string;
+  require_password_change: true;
+  message: string;
+};
+
 type ApiResponse<T> = {
   success: boolean;
   data?: T;
@@ -114,6 +150,48 @@ export async function changePassword(
   });
 }
 
+export async function listEmployees(
+  token: string,
+  search = '',
+  page = 1,
+  pageSize = 20,
+): Promise<EmployeeList> {
+  const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) });
+  if (search.trim()) params.set('search', search.trim());
+  return request<EmployeeList>(`${API_BASE_URL}/api/v1/admin/employees?${params.toString()}`, {
+    method: 'GET',
+    token,
+  });
+}
+
+export async function getEmployee(token: string, employeeId: string): Promise<EmployeeDetails> {
+  return request<EmployeeDetails>(
+    `${API_BASE_URL}/api/v1/admin/employees/${encodeURIComponent(employeeId)}`,
+    { method: 'GET', token },
+  );
+}
+
+export async function updateEmployee(
+  token: string,
+  employeeId: string,
+  employee: EmployeeUpdateRequest,
+): Promise<EmployeeDetails> {
+  return request<EmployeeDetails>(
+    `${API_BASE_URL}/api/v1/admin/employees/${encodeURIComponent(employeeId)}`,
+    { method: 'PUT', token, body: JSON.stringify(employee) },
+  );
+}
+
+export async function resetEmployeePassword(
+  token: string,
+  employeeId: string,
+): Promise<EmployeePasswordReset> {
+  return request<EmployeePasswordReset>(
+    `${API_BASE_URL}/api/v1/admin/employees/${encodeURIComponent(employeeId)}/password-reset`,
+    { method: 'POST', token },
+  );
+}
+
 export async function createEmployee(
   employee: EmployeeCreateRequest,
   token: string,
@@ -133,7 +211,7 @@ export async function createEmployee(
 
 async function request<T>(
   url: string,
-  options: { method: 'GET' | 'POST'; body?: string; token?: string },
+  options: { method: 'GET' | 'POST' | 'PUT'; body?: string; token?: string },
 ): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
