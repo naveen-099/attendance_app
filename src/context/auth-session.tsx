@@ -1,8 +1,12 @@
-import * as SecureStore from 'expo-secure-store';
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
 import { ApiError, getCurrentUser, type LoginUser } from '@/services/auth';
+import {
+  deleteStoredValue,
+  getStoredValue,
+  setStoredValue,
+} from '@/services/storage';
 
 const TOKEN_KEY = 'attendance_token';
 const USER_KEY = 'attendance_user';
@@ -45,8 +49,8 @@ export function AuthSessionProvider({ children }: React.PropsWithChildren) {
     const restoreSession = async () => {
       try {
         const [token, userJson] = await Promise.all([
-          SecureStore.getItemAsync(TOKEN_KEY),
-          SecureStore.getItemAsync(USER_KEY),
+          getStoredValue(TOKEN_KEY),
+          getStoredValue(USER_KEY),
         ]);
         const user = userJson ? (JSON.parse(userJson) as LoginUser) : null;
 
@@ -55,8 +59,8 @@ export function AuthSessionProvider({ children }: React.PropsWithChildren) {
           setSession({ token, user });
         } else if (token || userJson) {
           await Promise.all([
-            SecureStore.deleteItemAsync(TOKEN_KEY),
-            SecureStore.deleteItemAsync(USER_KEY),
+            deleteStoredValue(TOKEN_KEY),
+            deleteStoredValue(USER_KEY),
           ]);
         }
       } catch {
@@ -86,7 +90,7 @@ export function AuthSessionProvider({ children }: React.PropsWithChildren) {
         setSession((current) =>
           current?.token === token ? { ...current, user: latestUser } : current,
         );
-        await SecureStore.setItemAsync(USER_KEY, JSON.stringify(latestUser));
+        await setStoredValue(USER_KEY, JSON.stringify(latestUser));
       } catch (error: unknown) {
         const invalidSession =
           error instanceof ApiError &&
@@ -102,8 +106,8 @@ export function AuthSessionProvider({ children }: React.PropsWithChildren) {
         currentToken.current = null;
         setSession(null);
         await Promise.all([
-          SecureStore.deleteItemAsync(TOKEN_KEY),
-          SecureStore.deleteItemAsync(USER_KEY),
+          deleteStoredValue(TOKEN_KEY),
+          deleteStoredValue(USER_KEY),
         ]);
       }
     };
@@ -132,8 +136,8 @@ export function AuthSessionProvider({ children }: React.PropsWithChildren) {
       const remaining = payload.exp * 1000 - Date.now();
       if (remaining <= 0) {
         currentToken.current = null;
-        void SecureStore.deleteItemAsync(TOKEN_KEY);
-        void SecureStore.deleteItemAsync(USER_KEY);
+        void deleteStoredValue(TOKEN_KEY);
+        void deleteStoredValue(USER_KEY);
         setSession(null);
         return;
       }
@@ -141,8 +145,8 @@ export function AuthSessionProvider({ children }: React.PropsWithChildren) {
       const expiryTimer = setTimeout(() => {
         currentToken.current = null;
         setSession(null);
-        void SecureStore.deleteItemAsync(TOKEN_KEY);
-        void SecureStore.deleteItemAsync(USER_KEY);
+        void deleteStoredValue(TOKEN_KEY);
+        void deleteStoredValue(USER_KEY);
       }, remaining);
 
       return () => clearTimeout(expiryTimer);
@@ -159,21 +163,21 @@ export function AuthSessionProvider({ children }: React.PropsWithChildren) {
         if (user.role !== 'admin' && user.role !== 'employee') {
           throw new Error('This account role is not supported by the application.');
         }
-        await SecureStore.setItemAsync(TOKEN_KEY, token);
-        await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+        await setStoredValue(TOKEN_KEY, token);
+        await setStoredValue(USER_KEY, JSON.stringify(user));
         currentToken.current = token;
         setSession({ token, user });
       },
       updateUser: async (user) => {
         setSession((current) => (current ? { ...current, user } : current));
-        await SecureStore.setItemAsync(USER_KEY, JSON.stringify(user));
+        await setStoredValue(USER_KEY, JSON.stringify(user));
       },
       signOut: async () => {
         currentToken.current = null;
         setSession(null);
         await Promise.all([
-          SecureStore.deleteItemAsync(TOKEN_KEY),
-          SecureStore.deleteItemAsync(USER_KEY),
+          deleteStoredValue(TOKEN_KEY),
+          deleteStoredValue(USER_KEY),
         ]);
       },
     }),
